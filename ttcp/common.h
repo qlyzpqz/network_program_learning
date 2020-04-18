@@ -7,10 +7,13 @@ using namespace std;
 struct Option {
     bool client;
     bool server;
-    int num;
+    int number;
     int length;
     string host;
     unsigned short port;
+
+    Option(): client(false), server(false), number(1), host("127.0.0.1"), port(1234) {
+    }
 };
 
 struct SessionMessage {

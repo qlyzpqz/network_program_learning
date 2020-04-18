@@ -6,10 +6,10 @@
 
 int parseFlag(int argc, char **argv, Option *option) {
     for (int i = 1; i < argc; i++) {
-        if (argv[i] == "-c") {
+        if (string(argv[i]) == "-c") {
             option->client = true;
             option->server = false;
-        } else if (argv[i] == "-s") {
+        } else if (string(argv[i]) == "-s") {
             option->server = true;
             option->client = false;
         } else if (argv[i] == "-p") {
@@ -19,23 +19,27 @@ int parseFlag(int argc, char **argv, Option *option) {
             }
             option->port = atoi(argv[i+1]);
             i++;
-        } else if (argv[i] == "-n") {
+        } else if (string(argv[i]) == "-n") {
             if (i + 1 >= argc) {
                 perror("unexpected parameter, -n <num>");
                 return -1;
             }
-            option->num= atoi(argv[i+1]);
-        } else if (argv[i] == "-l") {
+            option->number = atoi(argv[i+1]);
+            i++;
+        } else if (string(argv[i]) == "-l") {
             if (i + 1 >= argc) {
                 perror("unexpected parameter, -l <length>");
                 return -1;
             }
             option->length = atoi(argv[i+1]);
-        } else if (argv[i] == "-h") {
+            i++;
+        } else if (string(argv[i]) == "-h") {
             if (i + 1 >= argc) {
                 perror("unexpected parameter, -h <host>");
                 return -1;
             }
+            option->host = argv[i+1];
+            i++;
         }
     }
     return 0;
