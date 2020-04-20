@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <vector>
 #include <sys/time.h>
+#include <assert.h>
+#include <algorithm>
 using namespace std;
 
 int read_n(int fd, char *buf, int buf_size) {
@@ -55,11 +57,17 @@ int transmit(const Option &opt) {
     int ret;
     int total_len;
     struct timeval all_begin, all_end, one_begin, one_end;
-    int send_bytes = 0;
+    long long send_bytes = 0;
+    int total_req_cnt = 0;
     int spend_ms;
-    vector<int> vec_spend_time;
+    int ack;
+    vector<double> vec_spend_time;
 
     fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) {
+        perror("create socket failed");
+        return -1;
+    }
     resolveOrDie(opt.host.c_str(), opt.port, &addr);
 
     ret = connect(fd, (sockaddr *)&addr, sizeof(addr));
@@ -82,21 +90,29 @@ int transmit(const Option &opt) {
 
     gettimeofday(&all_begin, NULL);
     for (size_t i = 0; i < opt.number; i++) {
+        total_req_cnt++;
         gettimeofday(&one_begin, NULL);
         send_bytes += total_len;
         ret = write_n(fd, (const char *)payload_msg, total_len);
-        // printf("send payload message, idx=%d, ret=%d\n", i, ret);
+        assert(ret == total_len);
+        ret = read_n(fd, (char *)&ack, sizeof(ack));
+        assert(ret == sizeof(ack));
+        ack = ntohl(ack);
+        assert(ack == opt.length);
         gettimeofday(&one_end, NULL);
-        vec_spend_time.push_back((one_end.tv_sec-one_begin.tv_sec)*1000+(one_end.tv_usec-one_end.tv_usec)/1000);
+        vec_spend_time.push_back((one_end.tv_sec-one_begin.tv_sec)*1000.0+(one_end.tv_usec-one_begin.tv_usec)/1000.0);
     }
     gettimeofday(&all_end, NULL);
 
-    spend_ms = (all_end.tv_sec-all_begin.tv_sec)*1000+(all_end.tv_usec-all_begin.tv_usec)/1000;
-    printf("total send: %dMB, time: %dms, speed: %.2lfKb/s\n", send_bytes/1024/1024, spend_ms, send_bytes/1024/(spend_ms/1000.0));
+    sort(vec_spend_time.begin(), vec_spend_time.end());
+
+    spend_ms = (all_end.tv_sec-all_begin.tv_sec)*1000.0+(all_end.tv_usec-all_begin.tv_usec)/1000.0;
+    printf("total send: %.2lfMB\ntotal_request_count: %d\ntime: %dms\nspeed: %.2lfKb/s\nqps: %.2lfq/s\navg latecy=%.2lfms\nP90 latecy: %.2lfms\n", send_bytes/1024.0/1024.0, total_req_cnt, spend_ms, send_bytes/1024.0/(spend_ms/1000.0), total_req_cnt / (spend_ms/1000.0), spend_ms/(1.0*total_req_cnt), (vec_spend_time[int(vec_spend_time.size()*0.9)]));
 
     if (payload_msg != NULL) {
         free(payload_msg);
     }
+    return 0;
 }
 
 int receive(const Option &opt) {
@@ -108,6 +124,7 @@ int receive(const Option &opt) {
     int total_len;
     char *buf;
     int ret;
+    int ack;
 
     assert(opt.server == true);
 
@@ -147,7 +164,11 @@ int receive(const Option &opt) {
     for (int i = 0; i < session_msg.number; i++) {
         ret = read_n(fd, buf, total_len);
         assert(ret == total_len);
+        ack = total_len - sizeof(int);
+        ack = htonl(ack);
+        ret = write_n(fd, (const char *)&ack, sizeof(ack));
     }
+    return 0;
 }
 
 int main(int argc, char **argv) {

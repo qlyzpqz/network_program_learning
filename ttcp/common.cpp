@@ -12,7 +12,7 @@ int parseFlag(int argc, char **argv, Option *option) {
         } else if (string(argv[i]) == "-s") {
             option->server = true;
             option->client = false;
-        } else if (argv[i] == "-p") {
+        } else if (string(argv[i]) == "-p") {
             if (i + 1 >= argc) {
                 perror("unexpected parameter, -p <n>");
                 return -1;
@@ -55,5 +55,7 @@ int resolveOrDie(const char *host, unsigned short port, sockaddr_in *addr)
     addr->sin_family = AF_INET;
     addr->sin_addr = *(in_addr *)pent->h_addr;
     addr->sin_port = htons(port);
+
+    return 0;
 }
 
